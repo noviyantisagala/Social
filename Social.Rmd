@@ -1,0 +1,187 @@
+# 0. Load library
+```{r}
+setwd("C:/Users/nv/OneDrive/Documents/BUKTI E-LEarning/Training/DAta science Course-net/10 mei")
+library(psych) #describe
+library(caTools) #divide train and test
+library(ggplot2) #plotting
+library(caret)
+library(kernlab)
+
+```
+
+
+# 1. Extract, Transform, Load (ETL)
+## 1.1. Load data
+
+```{r}
+df <- read.csv("social.csv")
+head(df)
+```
+
+## 1.2. Data Dictionary - feature, target, independent
+
+| nomor | nama_fitur      | tipe_data | keterangan      | Jenis       | Proses                                                     |
+|-------|-----------------|-----------|-----------------|-------------|------------------------------------------------------------|
+| 1     | User.ID         | Integer   | nomor urut      | Independent | Dibuang                                                    |
+| 2     | Gender          | Factorial | Jenis kelamin   | Independent | diproses; Male= 1, Female = 0; new_feature = Jenis.Kelamin |
+| 3     | Age             | Integer   | Kelas           | Independent | dipertahankan                                              |
+| 4     | EstimatedSalary | Integer   | Perkiraan Gaji  | Independent | dipertahankan                                              |
+| 5     | Purchased       | Double    | Beli atau tidak | Target      | Dipertahankan                                              |
+# 2. Feature engineering
+## 2.1. Feature engineering
+### 2.1.1. Remove features that not needed
+
+```{r}
+df$User.ID <- NULL
+head(df)
+
+```
+
+
+### 2.1.2. Add features if needed
+
+```{r}
+df$Jenis.Kelamin<- ifelse(df$Gender== 'Male', 1, 0)
+head(df)
+```
+```{r}
+df$Gender <- NULL
+head(df)
+```
+```{r}
+df <- df[,c(1,2,4,3)]
+head(df)
+```
+
+
+## 2.2. Check if there are NULL value
+
+```{r}
+colSums(is.na(df))
+```
+disimpulkan: tidak ada missing values ditemukan.
+
+### 2.2.1 Imputing process (if there's NULL)
+
+## 2.3. Check Unary data
+
+```{r}
+apply(df, 2, max) - apply(df, 2, min)
+```
+1. dari hasil diatas ditemukan bahwa datanya bervariasi, tidak ada yg bernilai 0
+2. unary berkebalikan dengan data kosong
+
+# 3. Exploratory Data Analysis (EDA)
+
+## 3.1. Descriptive Statistics
+Gunakan fungsi summary(), correlation cor(),  dan describe()
+
+```{r}
+summary(df)
+```
+1. memeriksa distribusi normal, jika nilai median dan mean dekat jaraknya, maka terdistribusi normal.
+2. 2nd quartile == 1/2 dari nilai max
+3. mean jenis.kelamin = 0.49 means 49% adalah male, mayoritas adalah 51%
+4. mean purchased = 0.35 means hanya 35% yang membeli, sisanya tidak
+
+```{r}
+cor(df)
+```
+
+1. the correlation coefficient of age and purchased is 0.622. Since it is rather close to 1, we can conclude that the variables are positively linearly related. ada korelasi sebesar 62%, peningkatan pembelian dipengaruhi oleh pertambahan usia
+2. korelasi jenis kelamin dan purchased indicates a strong negative correlation means setiap ada peningkatan pembelian, pembeli adalah female since Male=1
+3. 
+cek multikolinearitas, by cek ada gak yg lebih besar dari 80%, if any, take an action (recommmendation: deleted);hapus terbesar kedua terhadap target
+
+```{r}
+describe(df)[11:12]
+```
+1. kurtosis <= 2
+2. skew antara -2 dan +2 means skew is good
+3. skew 0.49
+
+
+## 3.2. Visualisation
+Gunakan fungsi boxplot(), heatmap(), plot() dan lain sebagainya
+
+
+```{r}
+plot(density(df$EstimatedSalary, col = ifelse(df$Purchased == 1, "blue", "red")))
+```
+terlihat dr plot bahwa dominant salary adalah kecil
+
+```{r}
+plot(df$Purchased, df$Age)
+```
+```{r}
+plot(df$EstimatedSalary, df$Age, col = ifelse(df$Purchased == 1, "red", "blue"))
+```
+usia < 30 y.o, salary below 85K.
+
+```{r}
+plot(df$EstimatedSalary, df$Age, col = ifelse(df$Jenis.Kelamin == 1, "red", "blue"))
+```
+no insights, ignore the plot
+
+```{r}
+# Encoding the target feature as factor 
+#df$Purchased <- factor(df$Purchased, levels = c(0, 1)) 
+
+```
+
+# 4. Fitting/Model
+## 4.1 Splitting
+
+```{r}
+
+split <- sample.split(df$Purchased, SplitRatio = 0.75)
+train <- subset(df, split == TRUE)
+test <- subset(df, split == FALSE)
+```
+
+## 4.2 Modeling
+
+```{r}
+svm<- ksvm(Purchased ~ Age + EstimatedSalary + Jenis.Kelamin, train, type = "C-svc", kernel= "rbfdot")
+
+```
+```{r}
+svm2<- ksvm(Purchased ~ Age + EstimatedSalary, train, type = "C-svc", kernel= "rbfdot")
+```
+
+
+# 5. Model Performance
+
+## 5.1 Inferential Statistic approach
+```{r}
+kj <- test$Purchased
+head(kj)
+```
+
+```{r}
+prediksi <- predict(svm, newdata = test)
+head(prediksi)
+```
+
+## 5.2 Visualization approach
+
+```{r}
+plot(svm2, data = train)
+```
+
+# 6. Prediction/Forecasting
+```{r}
+confusionMatrix(table(kj, prediksi))
+
+```
+
+
+```{r}
+cek <- data.frame(age= 5, shoeSize=20, score=57)
+predict(nn, newdata = cek, type = "class")
+```
+```{r}
+save(svm, file = "svm.rdata") ## file yg diberikan ke bagian IT
+```
+
+# 7. Further Prescription Analysis/Recommendation
